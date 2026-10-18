@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>澹读 · 有声阅读</title>
+<style>
+  :root{
+    --bg:#e6e5e1;            /* 清水混凝土底色 */
+    --bg-deep:#d8d7d3;
+    --panel:#efeeea;
+    --ink:#2f2e2b;           /* 主色：墨灰 */
+    --ink-soft:#6f6d68;
+    --line:#c4c2bc;
+    --accent:#8a4b3b;        /* 辅色：氧化铁红，仅少量点缀 */
+    --shadow:0 10px 30px rgba(47,46,43,.12);
+    --sidebar-w:280px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Source Han Serif SC","Noto Serif SC","Songti SC",Georgia,serif;
+    background:var(--bg);color:var(--ink);
+    /* 混凝土细腻质感 */
+    background-image:
+      radial-gradient(rgba(255,255,255,.35) .8px, transparent .8px),
+      radial-gradient(rgba(0,0,0,.025) 1px, transparent 1px);
+    background-size:7px 7px, 3px 3px;
+    background-position:0 0, 1px 2px;
+    overflow:hidden;
+  }
+
+  /* ===== 顶栏 ===== */
+  header{
+    position:fixed;inset:0 0 auto 0;height:56px;z-index:40;
+    display:flex;align-items:center;gap:14px;padding:0 18px;
+    background:rgba(230,229,225,.92);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{font-size:17px;letter-spacing:6px;font-weight:700;user-select:none}
+  .brand small{display:block;font-size:10px;letter-spacing:3px;color:var(--ink-soft);font-weight:400}
+  #menuBtn{
+    width:38px;height:38px;border:1px solid var(--line);background:var(--panel);
+    cursor:pointer;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;
+    border-radius:2px;transition:.2s;
+  }
+  #menuBtn span{width:18px;height:1.5px;background:var(--ink);transition:.25s}
+  #menuBtn:hover{border-color:var(--ink-soft)}
+  body.nav-open #menuBtn span:nth-child(1){transform:translateY(6.5px) rotate(45deg)}
+  body.nav-open #menuBtn span:nth-child(2){opacity:0}
+  body.nav-open #menuBtn span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg)}
+
+  /* ===== 侧栏 ===== */
+  aside{
+    position:fixed;top:56px;bottom:0;left:0;width:var(--sidebar-w);z-index:30;
+    background:var(--panel);border-right:1px solid var(--line);
+    padding:22px 20px 90px;overflow-y:auto;
+    transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+  }
+  body.nav-open aside{transform:none}
+  aside h3{
+    font-size:11px;letter-spacing:4px;color:var(--ink-soft);font-weight:700;
+    margin:26px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line);
+  }
+  aside h3:first-child{margin-top:0}
+  aside .hint{font-size:12px;color:var(--ink-soft);line-height:1.8}
+
+  .btn{
+    display:block;width:100%;padding:10px 12px;margin-bottom:8px;
+    border:1px solid var(--line);background:var(--bg);color:var(--ink);
+    font-family:inherit;font-size:13px;letter-spacing:2px;cursor:pointer;
+    border-radius:2px;transition:.2s;text-align:left;
+  }
+  .btn:hover{border-color:var(--ink);background:var(--bg-deep)}
+  .btn.accent{border-color:var(--accent);color:var(--accent);background:transparent}
+  .btn.accent:hover{background:var(--accent);color:#f4f2ee}
+  .btn.danger:hover{border-color:var(--accent);color:var(--accent)}
+
+  label.field{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:14px}
+  label.field b{display:block;margin-bottom:6px;font-weight:400;letter-spacing:1px}
+  select,input[type=range]{width:100%;accent-color:var(--ink)}
+  select{
+    padding:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);
+    font-family:inherit;font-size:13px;border-radius:2px;outline:none;
+  }
+  .val{float:right;color:var(--ink)}
+  input[type=range]{height:22px}
+  .toggle{display:flex;align-items:center;justify-content:space-between;font-size:13px;margin-bottom:14px;cursor:pointer}
+  .toggle input{accent-color:var(--accent);width:16px;height:16px;cursor:pointer}
+
+  /* ===== 阅读区 ===== */
+  main{
+    position:absolute;top:56px;bottom:64px;left:0;right:0;
+    overflow-y:auto;transition:left .3s cubic-bezier(.4,0,.2,1);
+    scroll-behavior:smooth;
+  }
+  body.nav-open main{left:var(--sidebar-w)}
+  .paper{
+    max-width:720px;margin:0 auto;padding:56px 40px 40vh;
+  }
+  .paper h1{font-size:26px;letter-spacing:3px;margin-bottom:6px}
+  .paper .meta{font-size:12px;color:var(--ink-soft);letter-spacing:2px;margin-bottom:40px}
+  .paper .body{font-size:17.5px;line-height:2.15;text-align:justify;color:var(--ink)}
+  .paper .body p{margin-bottom:1.5em}
+  .sentence{border-radius:2px;transition:background .25s,color .25s;padding:1px 2px}
+  .sentence.active{background:var(--ink);color:#f4f2ee}
+  .sentence.active::after{content:"";display:inline-block;width:.5em}
+  .empty{
+    height:60vh;display:flex;flex-direction:column;justify-content:center;align-items:center;
+    color:var(--ink-soft);letter-spacing:3px;gap:14px;user-select:none;
+  }
+  .empty .mark{font-size:60px;opacity:.18;font-weight:700}
+
+  /* ===== 底部播放条 ===== */
+  footer{
+    position:fixed;inset:auto 0 0 0;height:64px;z-index:40;
+    display:flex;align-items:center;gap:10px;padding:0 16px;
+    background:rgba(230,229,225,.94);backdrop-filter:blur(6px);
+    border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .cbtn{
+    width:42px;height:42px;border:1px solid var(--line);border-radius:50%;
+    background:var(--panel);cursor:pointer;font-size:15px;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;transition:.2s;flex-shrink:0;
+  }
+  .cbtn:hover{border-color:var(--ink)}
+  .cbtn.main{width:52px;height:52px;background:var(--ink);color:#f4f2ee;border-color:var(--ink);font-size:18px}
+  .cbtn.main:hover{background:#454440}
+  .cbtn:disabled{opacity:.35;cursor:not-allowed}
+  #progress{
+    flex:1;height:4px;background:var(--bg-deep);border-radius:2px;overflow:hidden;cursor:pointer;position:relative;
+  }
+  #progressBar{height:100%;width:0;background:var(--ink);transition:width .3s}
+  #status{
+    font-size:12px;color:var(--ink-soft);letter-spacing:1px;white-space:nowrap;max-width:220px;
+    overflow:hidden;text-overflow:ellipsis;
+  }
+  #speedTag{font-size:12px;color:var(--ink-soft);min-width:44px;text-align:center}
+
+  /* 遮罩（移动端） */
+  #mask{position:fixed;inset:0;background:rgba(47,46,43,.25);z-index:25;opacity:0;pointer-events:none;transition:.3s}
+  body.nav-open #mask{opacity:1;pointer-events:auto}
+
+  /* toast */
+  #toast{
+    position:fixed;top:74px;left:50%;transform:translateX(-50%) translateY(-8px);
+    background:var(--ink);color:#f4f2ee;font-size:13px;letter-spacing:1px;
+    padding:10px 20px;border-radius:2px;opacity:0;pointer-events:none;transition:.3s;z-index:60;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%)}
+
+  /* ===== 响应式 ===== */
+  @media (min-width:900px){
+    aside{transform:none !important}
+    main{left:var(--sidebar-w) !important}
+    #menuBtn{display:none}
+    body.nav-open #mask{opacity:0;pointer-events:none}
+    /* 桌面端折叠：收起侧栏 */
+    body.nav-collapsed aside{transform:translateX(-100%) !important}
+    body.nav-collapsed main{left:0 !important}
+  }
+  @media (max-width:899px){
+    .paper{padding:40px 22px 45vh}
+    .paper .body{font-size:16.5px;line-height:2.05}
+    #status{display:none}
+  }
+</style>
+</head>
+<body class="nav-open">
+
+<header>
+  <button id="menuBtn" aria-label="折叠导航"><span></span><span></span><span></span></button>
+  <div class="brand">澹读<small>FAIR-FACED READER</small></div>
+</header>
+
+<aside id="sidebar">
+  <h3>文 本</h3>
+  <button class="btn accent" id="importBtn">＋ 导入 .txt 文件</button>
+  <input type="file" id="fileInput" accept=".txt,.md,text/*" hidden>
+  <button class="btn" id="pasteBtn">从剪贴板导入</button>
+  <button class="btn danger" id="clearBtn">清空文本</button>
+  <p class="hint">也可以直接把 .txt 文件拖进右侧阅读区。</p>
+
+  <h3>朗 读</h3>
+  <label class="field"><b>语音</b><select id="voiceSel"></select></label>
+  <label class="field"><b>语速 <span class="val" id="rateVal">1.0×</span></b>
+    <input type="range" id="rate" min="0.5" max="3" step="0.1" value="1"></label>
+  <label class="field"><b>音调 <span class="val" id="pitchVal">1.0</span></b>
+    <input type="range" id="pitch" min="0.5" max="2" step="0.1" value="1"></label>
+  <label class="field"><b>音量 <span class="val" id="volVal">100%</span></b>
+    <input type="range" id="vol" min="0" max="1" step="0.05" value="1"></label>
+
+  <h3>界 面</h3>
+  <label class="toggle">自动滚动跟随<input type="checkbox" id="autoScroll" checked></label>
+  <label class="toggle">记住文本<input type="checkbox" id="remember" checked></label>
+  <p class="hint">朗读中断时（如浏览器休眠），再点一次播放即可从当前位置继续。</p>
+</aside>
+
+<div id="mask"></div>
+
+<main id="main">
+  <div class="paper">
+    <h1 id="title">澹读</h1>
+    <div class="meta" id="meta">清水混凝土 · 有声阅读</div>
+    <div class="body" id="body">
+      <div class="empty" id="empty">
+        <div class="mark">素</div>
+        <div>导入 TXT，或粘贴一段文字</div>
+        <div style="font-size:12px;opacity:.7">左侧菜单 · 或直接拖拽文件到此处</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <button class="cbtn" id="prevBtn" title="上一句">⏮</button>
+  <button class="cbtn main" id="playBtn" title="播放 / 暂停">▶</button>
+  <button class="cbtn" id="nextBtn" title="下一句">⏭</button>
+  <button class="cbtn" id="stopBtn" title="停止">⏹</button>
+  <div id="progress"><div id="progressBar"></div></div>
+  <span id="speedTag">1.0×</span>
+  <span id="status">待机</span>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const mainEl=$("main"), bodyEl=$("body"), emptyEl=$("empty"),
+        titleEl=$("title"), metaEl=$("meta"),
+        playBtn=$("playBtn"), statusEl=$("status"), progressBar=$("progressBar"),
+        voiceSel=$("voiceSel");
+
+  let sentences=[];      // {el, text}
+  let cur=-1, playing=false, paused=false;
+  let titles=[];         // 段落标题（来自 # 开头行）
+
+  /* ---------- 工具 ---------- */
+  function toast(msg){
+    const t=$("toast"); t.textContent=msg; t.classList.add("show");
+    clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),1800);
+  }
+  function setStatus(s){ statusEl.textContent=s; }
+
+  /* ---------- 文本处理 ---------- */
+  // 按句切分（中英文标点），保留段落结构
+  function splitSentences(text){
+    const out=[];
+    text.replace(/\r\n?/g,"\n").split(/\n+/).forEach(para=>{
+      const p=para.trim();
+      if(!p){ return; }
+      if(/^#{1,6}\s/.test(p)){ // markdown 标题行，单独成句
+        out.push({text:p.replace(/^#{1,6}\s/,""),heading:true});
+        return;
+      }
+      // 在句末标点后切分（不含结尾引号）
+      const parts=p.match(/[^。！？!?\n]*[。！？!?]+["'”’）)\]]*|[^。！？!?]+$/g)||[];
+      parts.forEach(s=>{ if(s.trim()) out.push({text:s.trim(),heading:false}); });
+    });
+    return out;
+  }
+
+  function render(text){
+    stop();
+    bodyEl.innerHTML="";
+    sentences=[];
+    const data=splitSentences(text);
+    if(!data.length){ emptyEl.style.display="flex"; bodyEl.appendChild(emptyEl); return; }
+    emptyEl.style.display="none";
+    let paraEl=document.createElement("p");
+    data.forEach((item,i)=>{
+      if(item.heading){
+        if(paraEl.childElementCount) bodyEl.appendChild(paraEl);
+        paraEl=document.createElement("p");
+        const h=document.createElement("div");
+        h.style.cssText="font-weight:700;font-size:1.15em;margin:1.4em 0 .6em;letter-spacing:2px";
+        h.textContent=item.text;
+        bodyEl.appendChild(h);
+        return;
+      }
+      const sp=document.createElement("span");
+      sp.className="sentence"; sp.textContent=item.text;
+      sp.addEventListener("click",()=>{ jumpTo(i); if(!playing) play(); });
+      paraEl.appendChild(sp);
+      sentences.push({el:sp,text:item.text});
+    });
+    if(paraEl.childElementCount) bodyEl.appendChild(paraEl);
+    $("meta").textContent=`共 ${sentences.length} 句 · ${text.length} 字`;
+    updateProgress();
+  }
+
+  function setText(text,name){
+    if(name) titleEl.textContent=name.replace(/\.[^.]+$/,"");
+    render(text);
+    if($("remember").checked){
+      try{ localStorage.setItem("dandu.text",text); localStorage.setItem("dandu.title",titleEl.textContent); }catch(e){}
+    }
+    toast("已载入文本");
+  }
+
+  /* ---------- 导入 ---------- */
+  $("importBtn").addEventListener("click",()=>$("fileInput").click());
+  $("fileInput").addEventListener("change",e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const fr=new FileReader();
+    fr.onload=()=>setText(fr.result,f.name);
+    fr.readAsText(f,"utf-8");
+    e.target.value="";
+  });
+  $("pasteBtn").addEventListener("click",async()=>{
+    try{
+      const t=await navigator.clipboard.readText();
+      if(t.trim()) setText(t,"剪贴板文本"); else toast("剪贴板为空");
+    }catch(e){ toast("无法读取剪贴板，请手动粘贴"); }
+  });
+  $("clearBtn").addEventListener("click",()=>{
+    stop(); setText(""); titleEl.textContent="澹读";
+    $("meta").textContent="清水混凝土 · 有声阅读";
+    try{ localStorage.removeItem("dandu.text"); }catch(e){}
+    toast("已清空");
+  });
+  // 拖拽导入
+  document.addEventListener("dragover",e=>e.preventDefault());
+  document.addEventListener("drop",e=>{
+    e.preventDefault();
+    const f=e.dataTransfer.files[0];
+    if(f && /\.(txt|md)$/i.test(f.name)){
+      const fr=new FileReader(); fr.onload=()=>setText(fr.result,f.name); fr.readAsText(f,"utf-8");
+    }else toast("请拖入 .txt / .md 文件");
+  });
+
+  /* ---------- TTS ---------- */
+  const synth=window.speechSynthesis;
+  let voices=[], voiceTimer=null;
+
+  function loadVoices(){
+    voices=synth.getVoices().filter(v=>v.lang.toLowerCase().startsWith("zh")||/chinese|中文|普通话/i.test(v.name));
+    if(!voices.length) voices=synth.getVoices();
+    const cur=voiceSel.value;
+    voiceSel.innerHTML="";
+    voices.forEach((v,i)=>{
+      const o=document.createElement("option");
+      o.value=i; o.textContent=`${v.name}（${v.lang}）`;
+      voiceSel.appendChild(o);
+    });
+    if(cur && [...voiceSel.options].some(o=>o.value===cur)) voiceSel.value=cur;
+    else{
+      // 优先本地普通话
+      const idx=voices.findIndex(v=>v.lang==="zh-CN"&&v.localService);
+      voiceSel.value=String(idx>-1?idx:0);
+    }
+  }
+  if(synth){
+    loadVoices();
+    synth.addEventListener("voiceschanged",loadVoices);
+    voiceTimer=setInterval(()=>{ if(!voices.length) loadVoices(); else clearInterval(voiceTimer); },1500);
+  }else{
+    toast("当前浏览器不支持语音合成");
+  }
+
+  function makeUtterance(i){
+    const u=new SpeechSynthesisUtterance(sentences[i].text);
+    const v=voices[voiceSel.value];
+    if(v) u.voice=v;
+    u.rate=parseFloat($("rate").value);
+    u.pitch=parseFloat($("pitch").value);
+    u.volume=parseFloat($("vol").value);
+    u.onend=()=>{ if(playing && cur===i) next(); };
+    u.onerror=(e)=>{ if(e.error!=="interrupted"&&e.error!=="canceled"){ playing=false; paused=false; updatePlayBtn(); setStatus("出错"); } };
+    return u;
+  }
+
+  function highlight(i){
+    sentences.forEach(s=>s.el.classList.remove("active"));
+    if(i<0||i>=sentences.length) return;
+    const el=sentences[i].el;
+    el.classList.add("active");
+    if($("autoScroll").checked){
+      const r=el.getBoundingClientRect();
+      const target=mainEl.scrollTop + r.top - mainEl.getBoundingClientRect().top - mainEl.clientHeight*0.35;
+      mainEl.scrollTo({top:target,behavior:"smooth"});
+    }
+  }
+
+  function speakCurrent(){
+    if(!synth){ return; }
+    if(cur<0||cur>=sentences.length){ finish(); return; }
+    highlight(cur);
+    setStatus(`朗读 ${cur+1}/${sentences.length}`);
+    updateProgress();
+    synth.speak(makeUtterance(cur));
+  }
+
+  function play(){
+    if(!sentences.length){ toast("请先导入文本"); return; }
+    if(!synth){ toast("浏览器不支持 TTS"); return; }
+    if(paused){ synth.resume(); paused=false; playing=true; updatePlayBtn(); setStatus("继续"); return; }
+    playing=true; updatePlayBtn();
+    if(cur<0) cur=0;
+    speakCurrent();
+  }
+  function pause(){
+    if(synth && synth.speaking && !synth.paused){ synth.pause(); paused=true; setStatus("暂停"); }
+    else { paused=true; }
+    playing=false; updatePlayBtn();
+  }
+  function stop(){
+    if(synth) synth.cancel();
+    playing=false; paused=false; cur=-1;
+    sentences.forEach(s=>s.el.classList.remove("active"));
+    updatePlayBtn(); setStatus("待机"); updateProgress();
+  }
+  function next(){
+    if(cur+1>=sentences.length){ finish(); return; }
+    cur++;
+    if(playing) speakCurrent(); else { highlight(cur); updateProgress(); }
+  }
+  function prev(){
+    if(cur>0) cur--;
+    if(playing){ synth.cancel(); speakCurrent(); } else { highlight(cur); updateProgress(); }
+  }
+  function jumpTo(i){
+    cur=i; if(!playing){ highlight(i); updateProgress(); }
+  }
+  function finish(){
+    playing=false; paused=false; updatePlayBtn(); setStatus("已读完");
+    sentences.forEach(s=>s.el.classList.remove("active"));
+  }
+  function updatePlayBtn(){ playBtn.textContent=playing?"⏸":"▶"; }
+
+  playBtn.addEventListener("click",()=>playing?pause():play());
+  $("stopBtn").addEventListener("click",stop);
+  $("nextBtn").addEventListener("click",next);
+  $("prevBtn").addEventListener("click",prev);
+
+  // Chrome 长文本中断保活
+  setInterval(()=>{ if(playing && synth && synth.speaking && !synth.paused){ /* keep-alive ok */ } },10000);
+
+  /* ---------- 进度条 ---------- */
+  function updateProgress(){
+    const pct=sentences.length?((cur+1)/sentences.length*100):0;
+    progressBar.style.width=pct+"%";
+  }
+  $("progress").addEventListener("click",e=>{
+    if(!sentences.length) return;
+    const r=e.currentTarget.getBoundingClientRect();
+    const idx=Math.min(sentences.length-1,Math.floor((e.clientX-r.left)/r.width*sentences.length));
+    jumpTo(idx); if(playing){ synth.cancel(); speakCurrent(); }
+  });
+
+  /* ---------- 设置 ---------- */
+  $("rate").addEventListener("input",e=>{
+    $("rateVal").textContent=parseFloat(e.target.value).toFixed(1)+"×";
+    $("speedTag").textContent=parseFloat(e.target.value).toFixed(1)+"×";
+    if(playing){ synth.cancel(); speakCurrent(); }
+  });
+  $("pitch").addEventListener("input",e=>$("pitchVal").textContent=parseFloat(e.target.value).toFixed(1));
+  $("vol").addEventListener("input",e=>$("volVal").textContent=Math.round(e.target.value*100)+"%");
+  $("rate").addEventListener("change",()=>{ try{localStorage.setItem("dandu.rate",$("rate").value);}catch(e){} });
+  $("pitch").addEventListener("change",()=>{ try{localStorage.setItem("dandu.pitch",$("pitch").value);}catch(e){} });
+  $("vol").addEventListener("change",()=>{ try{localStorage.setItem("dandu.vol",$("vol").value);}catch(e){} });
+
+  /* ---------- 导航折叠 ---------- */
+  const isDesktop=()=>matchMedia("(min-width:900px)").matches;
+  $("menuBtn").addEventListener("click",()=>{
+    if(isDesktop()){
+      document.body.classList.toggle("nav-collapsed");
+      document.body.classList.add("nav-open");
+    }else{
+      document.body.classList.toggle("nav-open");
+    }
+  });
+  $("mask").addEventListener("click",()=>document.body.classList.remove("nav-open"));
+
+  // 快捷键：空格播放/暂停，Esc 停止
+  document.addEventListener("keydown",e=>{
+    if(e.target.matches("input,select,textarea")) return;
+    if(e.code==="Space"){ e.preventDefault(); playing?pause():play(); }
+    if(e.key==="Escape") stop();
+  });
+
+  /* ---------- 恢复 ---------- */
+  try{
+    const r=localStorage.getItem("dandu.rate"); if(r){$("rate").value=r;$("rateVal").textContent=(+r).toFixed(1)+"×";$("speedTag").textContent=(+r).toFixed(1)+"×";}
+    const p=localStorage.getItem("dandu.pitch"); if(p){$("pitch").value=p;$("pitchVal").textContent=(+p).toFixed(1);}
+    const v=localStorage.getItem("dandu.vol"); if(v){$("vol").value=v;$("volVal").textContent=Math.round(v*100)+"%";}
+    const t=localStorage.getItem("dandu.text");
+    if(t){ render(t); titleEl.textContent=localStorage.getItem("dandu.title")||"澹读"; }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
