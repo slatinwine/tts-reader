@@ -26,3 +26,7 @@
 - HTML / CSS / 原生 JavaScript（单文件，无依赖、无构建）
 - Web Speech API（`speechSynthesis`）本地语音合成
 - File API / Clipboard API / localStorage
+
+## 关注公众号
+
+![公众号二维码](qrcode.jpg)
